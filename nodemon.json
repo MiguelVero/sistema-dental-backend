@@ -1,0 +1,9 @@
+{
+  "watch": ["server.js", "config/", "controllers/", "models/", "routes/", "services/", "middlewares/", "utils/"],
+  "ignore": ["whatsapp_sessions/", "logs/", "node_modules/"],
+  "ext": "js,json",
+  "delay": 1000,
+  "events": {
+    "restart": "echo '🔄 Servidor reiniciado'"
+  }
+}
