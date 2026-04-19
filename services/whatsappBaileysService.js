@@ -53,19 +53,15 @@ class WhatsAppBaileysService {
       this.sock.ev.on('connection.update', async (update) => {
         const { connection, lastDisconnect, qr } = update;
 
-        let qrCount = 0;
-      if (qr) {
-          qrCount++;
-          if (qrCount === 1) {  // Solo mostrar el primer QR
-              console.log('\n╔════════════════════════════════════════════════════╗');
-              console.log('║     📱 ESCANEA ESTE QR CON WHATSAPP 📱             ║');
-              console.log('╚════════════════════════════════════════════════════╝');
-              QRCode.generate(qr, { small: true });
+        if (qr) {
+          console.log('\n╔════════════════════════════════════════════════════╗');
+          console.log('║     📱 ESCANEA ESTE QR CON WHATSAPP 📱             ║');
+          console.log('╚════════════════════════════════════════════════════╝');
+          QRCode.generate(qr, { small: true });
           if (this.qrCallback) this.qrCallback(qr);
           logger.info('Nuevo QR generado');
           this.reconectando = false;
         }
-      }
 
         if (connection === 'connecting') {
           console.log('🔄 Conectando a WhatsApp...');
