@@ -47,9 +47,7 @@ class WhatsAppBaileysService {
         keepAliveIntervalMs: 30000,
         retryRequestDelayMs: 5000,
         maxRetries: 3,
-        connectTimeoutMs: 20000,
-            // Agrega esta línea para aumentar el tiempo entre QR
-        qrTimeout: 60000  // 60 segundos en lugar de 20
+        connectTimeoutMs: 20000
       });
 
       this.sock.ev.on('connection.update', async (update) => {
