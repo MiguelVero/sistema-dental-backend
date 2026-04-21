@@ -5,8 +5,9 @@ const path = require('path');
 const fs = require('fs');
 const logger = require('../utils/logger');
 
-// Variable para controlar si ya se mostró el QR
 let qrMostrado = false;
+let reintentos = 0;
+const MAX_REINTENTOS = 5;
 
 class WhatsAppBaileysService {
   constructor() {
@@ -38,7 +39,7 @@ class WhatsAppBaileysService {
 
       this.sock = makeWASocket({
         auth: state,
-        printQRInTerminal: false, // Deshabilitar auto-print
+        printQRInTerminal: false,
         browser: ['Clinica Dental', 'Chrome', '1.0.0'],
         syncFullHistory: false,
         markOnlineOnConnect: false,
@@ -49,7 +50,7 @@ class WhatsAppBaileysService {
         maxRetries: 3,
         connectTimeoutMs: 20000,
         logger: {
-          level: 'silent', // Silenciar logs internos
+          level: 'silent',
           log: () => {},
           info: () => {},
           warn: () => {},
@@ -65,13 +66,13 @@ class WhatsAppBaileysService {
 
         if (qr && !qrMostrado && !this.conectado) {
           qrMostrado = true;
-          console.log('\n📱 ESCANEA ESTE QR CON WHATSAPP (válido por 60 segundos):\n');
+          reintentos = 0;
+          console.log('\n📱 ESCANEA ESTE QR CON WHATSAPP:\n');
           QRCode.generate(qr, { small: true });
           if (this.qrCallback) this.qrCallback(qr);
           this.reconectando = false;
           
-          // Reiniciar flag después de 60 segundos
-          setTimeout(() => { qrMostrado = false; }, 60000);
+          setTimeout(() => { qrMostrado = false; }, 120000);
         }
 
         if (connection === 'open') {
@@ -79,20 +80,27 @@ class WhatsAppBaileysService {
           this.inicializado = true;
           this.reconectando = false;
           qrMostrado = false;
-          console.log('\n✅ WHATSAPP CONECTADO EXITOSAMENTE ✅\n');
+          reintentos = 0;
+          console.log('\n✅ WHATSAPP CONECTADO ✅\n');
         }
 
         if (connection === 'close') {
           this.conectado = false;
           const statusCode = (lastDisconnect?.error instanceof Boom) ? lastDisconnect.error.output.statusCode : 500;
           
-          if (statusCode !== DisconnectReason.loggedOut) {
+          if (statusCode !== DisconnectReason.loggedOut && reintentos < MAX_REINTENTOS) {
+            reintentos++;
+            console.log(`⚠️ Reconectando WhatsApp (intento ${reintentos}/${MAX_REINTENTOS})...`);
             setTimeout(() => {
               this.reconectando = false;
               this.iniciar();
-            }, 10000);
+            }, 30000 * reintentos);
+          } else if (reintentos >= MAX_REINTENTOS) {
+            console.log('❌ No se pudo conectar WhatsApp después de varios intentos');
+            this.inicializado = false;
+            this.reconectando = false;
           } else {
-            console.log('\n❌ SESIÓN CERRADA. Reinicia el servicio\n');
+            console.log('❌ Sesión de WhatsApp cerrada. Esperando nuevo QR...');
             this.inicializado = false;
             this.reconectando = false;
             qrMostrado = false;
@@ -102,10 +110,9 @@ class WhatsAppBaileysService {
 
       this.sock.ev.on('creds.update', saveCreds);
 
-      // Procesar mensajes - SILENCIOSAMENTE
+      // Procesar mensajes silenciosamente
       this.sock.ev.on('messages.upsert', async ({ messages }) => {
         for (const msg of messages) {
-          // Ignorar mensajes de protocolo y estados
           if (msg.message?.protocolMessage) continue;
           if (msg.key.remoteJid === 'status@broadcast') continue;
           if (msg.key.fromMe) continue;
@@ -132,9 +139,7 @@ class WhatsAppBaileysService {
           const ultimos9 = telefono.slice(-9);
           
           const paciente = await Paciente.findOne({
-            where: {
-              telefono: { [Op.like]: `%${ultimos9}` }
-            }
+            where: { telefono: { [Op.like]: `%${ultimos9}` } }
           });
           
           if (!paciente) continue;
@@ -152,22 +157,8 @@ class WhatsAppBaileysService {
             
             if (cita) {
               await cita.update({ confirmada_cliente: true, estado: 'confirmada' });
-              console.log(`✅ Cita ${cita.id} confirmada por ${paciente.nombre}`);
-              await this.enviarMensaje(telefono, `✅ ¡Gracias ${paciente.nombre}! Tu cita ha sido confirmada. 🦷`);
-            }
-          } else if (textoLower === 'cancelar' || textoLower.includes('cancelar')) {
-            const cita = await Cita.findOne({
-              where: {
-                paciente_id: paciente.id,
-                fecha: { [Op.gte]: new Date().toISOString().split('T')[0] },
-                estado: 'pendiente'
-              }
-            });
-            
-            if (cita) {
-              await cita.update({ estado: 'cancelada' });
-              console.log(`❌ Cita ${cita.id} cancelada por ${paciente.nombre}`);
-              await this.enviarMensaje(telefono, `❌ Tu cita ha sido cancelada. Llámanos para reagendar.`);
+              console.log(`✅ Cita ${cita.id} confirmada`);
+              await this.enviarMensaje(telefono, `✅ ¡Gracias! Tu cita ha sido confirmada. 🦷`);
             }
           }
         }
@@ -175,7 +166,7 @@ class WhatsAppBaileysService {
 
     } catch (error) {
       this.reconectando = false;
-      setTimeout(() => this.iniciar(), 15000);
+      setTimeout(() => this.iniciar(), 30000);
     }
   }
 
