@@ -7,6 +7,7 @@ const fs = require('fs');
 let qrMostrado = false;
 let reconnectAttempts = 0;
 const MAX_RECONNECT_ATTEMPTS = 5;
+let ultimoQR = null;
 
 class WhatsAppBaileysService {
   constructor() {
@@ -51,7 +52,6 @@ class WhatsAppBaileysService {
         retryRequestDelayMs: 5000,
         maxRetries: 2,
         connectTimeoutMs: 20000,
-        // Eliminar logger personalizado - usar el default
       });
 
       this.sock.ev.on('connection.update', async (update) => {
@@ -59,14 +59,22 @@ class WhatsAppBaileysService {
 
         if (qr && !qrMostrado && !this.conectado) {
           qrMostrado = true;
+          ultimoQR = qr;
           reconnectAttempts = 0;
+          
           console.log('\n╔════════════════════════════════════════════════════╗');
-          console.log('║     📱 ESCANEA ESTE QR CON WHATSAPP 📱             ║');
+          console.log('║     📱 ESCANEA EL QR EN LA SIGUIENTE URL 📱         ║');
           console.log('╚════════════════════════════════════════════════════╝');
+          
+          // Generar URL para ver el QR (usando una página web simple)
+          const qrData = encodeURIComponent(qr);
+          console.log(`\n🔗 Para escanear, visita: ${process.env.API_URL || 'http://localhost:3000'}/qr\n`);
+          console.log('O escanea el código QR a continuación:\n');
           QRCode.generate(qr, { small: true });
+          
           if (this.qrCallback) this.qrCallback(qr);
           
-          setTimeout(() => { qrMostrado = false; }, 60000);
+          setTimeout(() => { qrMostrado = false; }, 120000);
         }
 
         if (connection === 'open') {
@@ -75,6 +83,7 @@ class WhatsAppBaileysService {
           this.reconectando = false;
           reconnectAttempts = 0;
           qrMostrado = false;
+          ultimoQR = null;
           console.log('\n╔════════════════════════════════════════════════════╗');
           console.log('║     ✅ WHATSAPP CONECTADO EXITOSAMENTE ✅          ║');
           console.log('╚════════════════════════════════════════════════════╝');
@@ -120,6 +129,10 @@ class WhatsAppBaileysService {
       this.reconectando = false;
       setTimeout(() => this.iniciar(), 15000);
     }
+  }
+
+  obtenerQR() {
+    return ultimoQR;
   }
 
   async enviarMensaje(numeroTelefono, mensaje) {

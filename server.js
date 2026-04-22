@@ -18,6 +18,7 @@ const whatsappRoutes = require('./routes/whatsappRoutes');
 const pacienteRoutes = require('./routes/pacienteRoutes');
 const tratamientoRoutes = require('./routes/tratamientoRoutes');
 const confirmacionRoutes = require('./routes/confirmacionRoutes');
+const qrRoutes = require('./routes/qrRoutes');
 const app = express();
 const server = http.createServer(app);
 const io = socketIO(server, {
@@ -56,7 +57,9 @@ app.use('/api/citas', citaRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
 app.use('/api/pacientes', pacienteRoutes);
 app.use('/api/tratamientos', tratamientoRoutes);
+app.use('/qr', qrRoutes);
 app.use('/', confirmacionRoutes);
+
 // Ruta de health check
 app.get('/health', (req, res) => {
   res.json({ 
