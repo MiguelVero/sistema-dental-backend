@@ -5,6 +5,8 @@ const path = require('path');
 const fs = require('fs');
 
 let qrMostrado = false;
+let reconnectAttempts = 0;
+const MAX_RECONNECT_ATTEMPTS = 5;
 
 class WhatsAppBaileysService {
   constructor() {
@@ -31,7 +33,7 @@ class WhatsAppBaileysService {
     
     if (!fs.existsSync(sessionDir)) {
       fs.mkdirSync(sessionDir, { recursive: true });
-      console.log(`📁 Carpeta de sesiones creada`);
+      console.log(`📁 Carpeta de sesiones creada en: ${sessionDir}`);
     }
 
     try {
@@ -49,16 +51,7 @@ class WhatsAppBaileysService {
         retryRequestDelayMs: 5000,
         maxRetries: 2,
         connectTimeoutMs: 20000,
-        logger: {
-          level: 'silent',
-          log: () => {},
-          info: () => {},
-          warn: () => {},
-          error: () => {},
-          trace: () => {},
-          debug: () => {},
-          fatal: () => {},
-        }
+        // Eliminar logger personalizado - usar el default
       });
 
       this.sock.ev.on('connection.update', async (update) => {
@@ -66,6 +59,7 @@ class WhatsAppBaileysService {
 
         if (qr && !qrMostrado && !this.conectado) {
           qrMostrado = true;
+          reconnectAttempts = 0;
           console.log('\n╔════════════════════════════════════════════════════╗');
           console.log('║     📱 ESCANEA ESTE QR CON WHATSAPP 📱             ║');
           console.log('╚════════════════════════════════════════════════════╝');
@@ -79,6 +73,7 @@ class WhatsAppBaileysService {
           this.conectado = true;
           this.inicializado = true;
           this.reconectando = false;
+          reconnectAttempts = 0;
           qrMostrado = false;
           console.log('\n╔════════════════════════════════════════════════════╗');
           console.log('║     ✅ WHATSAPP CONECTADO EXITOSAMENTE ✅          ║');
@@ -93,23 +88,29 @@ class WhatsAppBaileysService {
           const statusCode = (lastDisconnect?.error instanceof Boom) ? lastDisconnect.error.output.statusCode : 500;
           
           if (statusCode !== DisconnectReason.loggedOut) {
-            console.log('⚠️ WhatsApp desconectado, reconectando en 15 segundos...');
-            setTimeout(() => {
+            reconnectAttempts++;
+            if (reconnectAttempts <= MAX_RECONNECT_ATTEMPTS) {
+              console.log(`⚠️ WhatsApp desconectado, reconectando en 15 segundos... (Intento ${reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
+              setTimeout(() => {
+                this.reconectando = false;
+                this.iniciar();
+              }, 15000);
+            } else {
+              console.log('❌ Máximos intentos de reconexión alcanzados. Reinicia el servicio manualmente.');
               this.reconectando = false;
-              this.iniciar();
-            }, 15000);
+            }
           } else {
-            console.log('\n❌ SESIÓN CERRADA. Reinicia el servicio\n');
+            console.log('\n❌ SESIÓN CERRADA. Elimina la carpeta "whatsapp_sessions" y reinicia el servicio\n');
             this.inicializado = false;
             this.reconectando = false;
             qrMostrado = false;
+            reconnectAttempts = 0;
           }
         }
       });
 
       this.sock.ev.on('creds.update', saveCreds);
 
-      // Manejar errores de conexión
       this.sock.ev.on('error', (error) => {
         console.error('❌ Error en WhatsApp:', error.message);
       });
