@@ -150,11 +150,14 @@ router.get('/confirmar/:token', async (req, res) => {
   }
 });
 
+
 // API para confirmar cita (POST)
 router.post('/api/confirmacion/:token/confirmar', async (req, res) => {
   try {
     const { token } = req.params;
-    console.log(`🔍 Confirmando cita con token: ${token}`);
+    console.log(`🔍 ========== CONFIRMANDO CITA ==========`);
+    console.log(`🔍 Token recibido: ${token}`);
+    console.log(`🔍 Headers:`, req.headers);
     
     const cita = await Cita.findOne({
       where: {
@@ -164,8 +167,10 @@ router.post('/api/confirmacion/:token/confirmar', async (req, res) => {
       }
     });
     
+    console.log(`🔍 Cita encontrada:`, cita ? `ID ${cita.id}` : 'NO');
+    
     if (!cita) {
-      console.log(`❌ Token no encontrado o expirado: ${token}`);
+      console.log(`❌ Token no encontrado o expirado`);
       return res.status(404).json({ success: false, message: 'Enlace inválido o expirado' });
     }
     
@@ -173,7 +178,7 @@ router.post('/api/confirmacion/:token/confirmar', async (req, res) => {
     console.log(`✅ Cita ${cita.id} confirmada correctamente`);
     res.json({ success: true });
   } catch (error) {
-    console.error('Error confirmando cita:', error);
+    console.error('❌ Error confirmando cita:', error);
     res.status(500).json({ success: false, error: error.message });
   }
 });
