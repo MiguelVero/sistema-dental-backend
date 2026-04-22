@@ -57,7 +57,7 @@ app.use('/api/citas', citaRoutes);
 app.use('/api/whatsapp', whatsappRoutes);
 app.use('/api/pacientes', pacienteRoutes);
 app.use('/api/tratamientos', tratamientoRoutes);
-app.use('/qr', qrRoutes);
+app.use('/', qrRoutes);
 app.use('/', confirmacionRoutes);
 
 // Ruta de health check
