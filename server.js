@@ -66,11 +66,15 @@ app.get('/health', (req, res) => {
   });
 });
 
-// Iniciar WhatsApp service
+// Iniciar WhatsApp service con manejo de errores
 if (process.env.WHATSAPP_AUTO_START === 'true') {
-  setTimeout(() => {
-    whatsappService.iniciar();
-  }, 2000);
+  setTimeout(async () => {
+    try {
+      await whatsappService.iniciar();
+    } catch (error) {
+      console.error('❌ Error al iniciar WhatsApp:', error.message);
+    }
+  }, 5000);
 }
 
 // Programar CRON jobs
