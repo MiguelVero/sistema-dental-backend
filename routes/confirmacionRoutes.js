@@ -4,6 +4,7 @@ const { Cita, Paciente, Tratamiento } = require('../models');
 const { Op } = require('sequelize');
 const logger = require('../utils/logger');
 
+// Página de confirmación (GET)
 router.get('/confirmar/:token', async (req, res) => {
   try {
     const { token } = req.params;
@@ -24,13 +25,14 @@ router.get('/confirmar/:token', async (req, res) => {
         <head><title>Enlace inválido</title></head>
         <body style="font-family: Arial; text-align: center; padding: 50px;">
           <h1>⚠️ Enlace inválido o expirado</h1>
+          <p>Por favor contacta la clínica.</p>
         </body>
         </html>
       `);
     }
     
     const fechaFormateada = new Date(cita.fecha).toLocaleDateString('es-PE');
-    const apiUrl = process.env.API_URL || 'http://localhost:3000';
+    const apiUrl = process.env.API_URL || `https://${req.get('host')}`;
     
     res.send(`
       <!DOCTYPE html>
@@ -59,8 +61,8 @@ router.get('/confirmar/:token', async (req, res) => {
             <p><strong>Hora:</strong> ${cita.hora.substring(0,5)}</p>
             <p><strong>Tratamiento:</strong> ${cita.tratamiento.nombre}</p>
           </div>
-          <button class="btn-yes" onclick="confirmarCita()">✅ Sí, asistiré</button>
-          <button class="btn-no" onclick="cancelarCita()">❌ Cancelar cita</button>
+          <button class="btn-yes" id="btnConfirmar">✅ Sí, asistiré</button>
+          <button class="btn-no" id="btnCancelar">❌ Cancelar cita</button>
           <div id="mensaje" class="mensaje"></div>
         </div>
         
@@ -68,43 +70,51 @@ router.get('/confirmar/:token', async (req, res) => {
           const TOKEN = '${token}';
           const API_URL = '${apiUrl}';
           
-          async function confirmarCita() {
-            const btn = document.querySelector('.btn-yes');
+          console.log('API_URL:', API_URL);
+          console.log('TOKEN:', TOKEN);
+          
+          document.getElementById('btnConfirmar').addEventListener('click', async function() {
+            const btn = this;
             btn.disabled = true;
             btn.textContent = 'Procesando...';
             
             try {
+              console.log('Confirmando cita...');
               const response = await fetch(API_URL + '/api/confirmacion/' + TOKEN + '/confirmar', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
               });
               const result = await response.json();
+              console.log('Respuesta:', result);
               
               if (result.success) {
                 document.getElementById('app').innerHTML = '<div style="text-align:center"><h1 style="color:#10b981;">🎉 ¡Gracias por tu confirmación!</h1><p>Tu cita ha sido confirmada.</p></div>';
               } else {
-                mostrarMensaje('Error al confirmar la cita', 'error');
+                mostrarMensaje('Error al confirmar la cita: ' + (result.message || 'Desconocido'), 'error');
                 btn.disabled = false;
                 btn.textContent = '✅ Sí, asistiré';
               }
             } catch (error) {
+              console.error('Error:', error);
               mostrarMensaje('Error de conexión: ' + error.message, 'error');
               btn.disabled = false;
               btn.textContent = '✅ Sí, asistiré';
             }
-          }
+          });
           
-          async function cancelarCita() {
-            const btn = document.querySelector('.btn-no');
+          document.getElementById('btnCancelar').addEventListener('click', async function() {
+            const btn = this;
             btn.disabled = true;
             btn.textContent = 'Procesando...';
             
             try {
+              console.log('Cancelando cita...');
               const response = await fetch(API_URL + '/api/confirmacion/' + TOKEN + '/cancelar', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' }
               });
               const result = await response.json();
+              console.log('Respuesta:', result);
               
               if (result.success) {
                 document.getElementById('app').innerHTML = '<div style="text-align:center"><h1 style="color:#ef4444;">❌ Cita cancelada</h1><p>Tu cita ha sido cancelada.</p></div>';
@@ -114,11 +124,12 @@ router.get('/confirmar/:token', async (req, res) => {
                 btn.textContent = '❌ Cancelar cita';
               }
             } catch (error) {
+              console.error('Error:', error);
               mostrarMensaje('Error de conexión: ' + error.message, 'error');
               btn.disabled = false;
               btn.textContent = '❌ Cancelar cita';
             }
-          }
+          });
           
           function mostrarMensaje(texto, tipo) {
             const msgDiv = document.getElementById('mensaje');
@@ -139,6 +150,7 @@ router.get('/confirmar/:token', async (req, res) => {
   }
 });
 
+// API para confirmar cita (POST)
 router.post('/api/confirmacion/:token/confirmar', async (req, res) => {
   try {
     const { token } = req.params;
@@ -166,6 +178,7 @@ router.post('/api/confirmacion/:token/confirmar', async (req, res) => {
   }
 });
 
+// API para cancelar cita (POST)
 router.post('/api/confirmacion/:token/cancelar', async (req, res) => {
   try {
     const { token } = req.params;
